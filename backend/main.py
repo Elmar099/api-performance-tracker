@@ -45,6 +45,7 @@ def slow_endpoint():
 
 
 class TestConfig(BaseModel):
+    url: str
     vus: int = Field(gt=0, le=1000)
     duration: str
 
@@ -58,7 +59,7 @@ class TestConfig(BaseModel):
 
 @app.post("/api/tests")
 def run_test(config: TestConfig):
-    result = run_k6_test(config.vus, config.duration)
+    result = run_k6_test(config.url, config.vus, config.duration)
 
     test_id = str(uuid4())
     created_at = datetime.now(timezone.utc)
@@ -68,6 +69,7 @@ def run_test(config: TestConfig):
     test = Test(
         id=test_id,
         created_at=created_at,
+        url=config.url,
         vus=config.vus,
         duration=config.duration,
         requests=result["requests"],
@@ -86,6 +88,7 @@ def run_test(config: TestConfig):
         "test_id": test_id,
         "created_at": created_at.isoformat(),
         "config": {
+            "url": config.url,
             "vus": config.vus,
             "duration": config.duration,
         },

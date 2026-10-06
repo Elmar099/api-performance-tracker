@@ -8,6 +8,8 @@ class Test(Base):
     id = Column(String, primary_key=True)
     created_at = Column(DateTime)
 
+    url = Column(String)
+
     vus = Column(Integer)
     duration = Column(String)
 

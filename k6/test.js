@@ -11,7 +11,7 @@ export const options = {
 };
 
 export default function () {
-    const response = http.get("http://127.0.0.1:8000/api/users");
+    const response = http.get(__ENV.K6_URL);
 
     check(response, {
         "status is 200": (r) => r.status === 200,
