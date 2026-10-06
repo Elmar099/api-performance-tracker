@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from backend.k6_runner import run_k6_test
 import time
 
 app = FastAPI()
@@ -33,5 +34,15 @@ def get_products():
 
 @app.get("/api/slow")
 def slow_endpoint():
-    time.sleep(2)
+    time.sleep(1)
     return {"message": "This endpoint is slow!"}
+
+@app.post("/api/tests")
+def run_test():
+    result = run_k6_test()
+
+    return {
+        "success": result["success"],
+        "output": result["output"],
+        "error": result["error"],
+    }
