@@ -27,7 +27,7 @@ def run_k6_test(url, vus, duration):
     metrics = summary["metrics"]
 
     return {
-        "success": result.returncode == 0,
+        "threshold_passed": result.returncode == 0,
         "requests": metrics["http_reqs"]["count"],
         "requests_per_second": metrics["http_reqs"]["rate"],
         "avg_latency_ms": metrics["http_req_duration"]["avg"],

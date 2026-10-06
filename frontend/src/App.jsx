@@ -76,18 +76,19 @@ function App() {
 
       <h2>Run Performance Test</h2>
 
-    <form onSubmit={runTest}>
-      <div>
+    <form className="test-form" onSubmit={runTest}>
+      <div className="form-group">
         <label>API URL</label>
         <input
-          type="text"
+          type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
           placeholder="http://127.0.0.1:8000/api/users"
+          required
         />
       </div>
 
-  <div>
+  <div className="form-group">
     <label>Virtual Users</label>
     <input
       type="number"
@@ -95,17 +96,21 @@ function App() {
       onChange={(event) => setVus(Number(event.target.value))}
       min="1"
       max="1000"
-    />
+      required
+/>
   </div>
 
-  <div>
+  <div className="form-group">
     <label>Duration</label>
-    <input
-      type="text"
-      value={duration}
-      onChange={(event) => setDuration(event.target.value)}
-      placeholder="10s"
-    />
+    <select
+    value={duration}
+    onChange={(event) => setDuration(event.target.value)}
+>
+    <option value="5s">5 seconds</option>
+    <option value="10s">10 seconds</option>
+    <option value="30s">30 seconds</option>
+    <option value="1m">1 minute</option>
+</select>
   </div>
 
   <button type="submit" disabled={running}>
@@ -120,6 +125,18 @@ function App() {
       <p><strong>URL:</strong> {result.config.url}</p>
       <p><strong>Virtual Users:</strong> {result.config.vus}</p>
       <p><strong>Duration:</strong> {result.config.duration}</p>
+      <p>
+  <strong>Status:</strong>{" "}
+  <span
+    className={
+      result.results.threshold_passed
+        ? "status-badge status-passed"
+        : "status-badge status-failed"
+    }
+  >
+    {result.results.threshold_passed ? "Passed" : "Threshold Failed"}
+  </span>
+</p>
     </div>
 
     <div className="metrics">
@@ -186,6 +203,7 @@ function App() {
               <th>P95 Latency</th>
               <th>Max Latency</th>
               <th>Failure Rate</th>
+              <th>Status</th>
             </tr>
           </thead>
 
@@ -201,6 +219,17 @@ function App() {
                 <td>{test.p95_latency_ms.toFixed(2)} ms</td>
                 <td>{test.max_latency_ms.toFixed(2)} ms</td>
                 <td>{(test.failure_rate * 100).toFixed(2)}%</td>
+                <td>
+                  <span
+                    className={
+                      test.threshold_passed
+                        ? "status-badge status-passed"
+                        : "status-badge status-failed"
+                    }
+                  >
+                    {test.threshold_passed ? "Passed" : "Threshold Failed"}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

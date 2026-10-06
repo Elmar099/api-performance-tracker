@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime
+from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean
 from backend.database import Base
 
 
@@ -19,3 +19,4 @@ class Test(Base):
     p95_latency_ms = Column(Float)
     max_latency_ms = Column(Float)
     failure_rate = Column(Float)
+    threshold_passed = Column(Boolean)

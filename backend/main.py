@@ -79,6 +79,7 @@ class TestResponse(BaseModel):
     p95_latency_ms: float
     max_latency_ms: float
     failure_rate: float
+    threshold_passed: bool
 
 @app.post("/api/tests")
 def run_test(config: TestConfig):
@@ -101,6 +102,7 @@ def run_test(config: TestConfig):
         p95_latency_ms=result["p95_latency_ms"],
         max_latency_ms=result["max_latency_ms"],
         failure_rate=result["failure_rate"],
+        threshold_passed=result["threshold_passed"],
     )
 
     db.add(test)
