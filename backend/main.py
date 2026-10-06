@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from backend.k6_runner import run_k6_test
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime, timezone
 from uuid import uuid4
 from backend.database import SessionLocal
@@ -57,6 +57,21 @@ class TestConfig(BaseModel):
 
         return value
 
+class TestResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    created_at: datetime
+    url: str
+    vus: int
+    duration: str
+    requests: int
+    requests_per_second: float
+    avg_latency_ms: float
+    p95_latency_ms: float
+    max_latency_ms: float
+    failure_rate: float
+
 @app.post("/api/tests")
 def run_test(config: TestConfig):
     result = run_k6_test(config.url, config.vus, config.duration)
@@ -95,7 +110,7 @@ def run_test(config: TestConfig):
         "results": result,
     }
 
-@app.get("/api/tests")
+@app.get("/api/tests", response_model=list[TestResponse])
 def get_tests():
     db = SessionLocal()
 
