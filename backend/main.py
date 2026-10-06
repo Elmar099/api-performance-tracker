@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from backend.k6_runner import run_k6_test
+from pydantic import BaseModel, Field, field_validator
+from datetime import datetime, timezone
+from uuid import uuid4
 import time
+
 
 app = FastAPI()
 
@@ -37,12 +41,29 @@ def slow_endpoint():
     time.sleep(1)
     return {"message": "This endpoint is slow!"}
 
+
+class TestConfig(BaseModel):
+    vus: int = Field(gt=0, le=1000)
+    duration: str
+
+    @field_validator("duration")
+    @classmethod
+    def validate_duration(cls, value):
+        if not value.endswith(("s", "m")):
+            raise ValueError("Duration must end with 's' or 'm'")
+
+        return value
+
 @app.post("/api/tests")
-def run_test():
-    result = run_k6_test()
+def run_test(config: TestConfig):
+    result = run_k6_test(config.vus, config.duration)
 
     return {
-        "success": result["success"],
-        "output": result["output"],
-        "error": result["error"],
+        "test_id": str(uuid4()),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "config": {
+            "vus": config.vus,
+            "duration": config.duration,
+        },
+        "results": result,
     }
