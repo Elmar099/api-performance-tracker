@@ -3,6 +3,8 @@ from backend.k6_runner import run_k6_test
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, timezone
 from uuid import uuid4
+from backend.database import SessionLocal
+from backend.models import Test
 import time
 
 
@@ -58,12 +60,44 @@ class TestConfig(BaseModel):
 def run_test(config: TestConfig):
     result = run_k6_test(config.vus, config.duration)
 
+    test_id = str(uuid4())
+    created_at = datetime.now(timezone.utc)
+
+    db = SessionLocal()
+
+    test = Test(
+        id=test_id,
+        created_at=created_at,
+        vus=config.vus,
+        duration=config.duration,
+        requests=result["requests"],
+        requests_per_second=result["requests_per_second"],
+        avg_latency_ms=result["avg_latency_ms"],
+        p95_latency_ms=result["p95_latency_ms"],
+        max_latency_ms=result["max_latency_ms"],
+        failure_rate=result["failure_rate"],
+    )
+
+    db.add(test)
+    db.commit()
+    db.close()
+
     return {
-        "test_id": str(uuid4()),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "test_id": test_id,
+        "created_at": created_at.isoformat(),
         "config": {
             "vus": config.vus,
             "duration": config.duration,
         },
         "results": result,
     }
+
+@app.get("/api/tests")
+def get_tests():
+    db = SessionLocal()
+
+    tests = db.query(Test).order_by(Test.created_at.desc()).all()
+
+    db.close()
+
+    return tests
