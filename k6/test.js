@@ -11,7 +11,24 @@ export const options = {
 };
 
 export default function () {
-    const response = http.get(__ENV.K6_URL);
+    let response;
+
+    switch (__ENV.K6_METHOD) {
+        case "POST":
+            response = http.post(__ENV.K6_URL);
+            break;
+    
+        case "PUT":
+            response = http.put(__ENV.K6_URL);
+            break;
+    
+        case "DELETE":
+            response = http.del(__ENV.K6_URL);
+            break;
+    
+        default:
+            response = http.get(__ENV.K6_URL);
+    }
 
     check(response, {
         "status is 200": (r) => r.status === 200,

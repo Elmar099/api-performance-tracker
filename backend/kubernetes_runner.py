@@ -18,7 +18,7 @@ def get_docker_url(url):
 
     return urlunparse(parsed)
 
-def create_k6_job(test_id, url, vus, duration, p95_threshold_ms):
+def create_k6_job(test_id, url, vus, duration, p95_threshold_ms, method):
     config.load_kube_config()
 
     batch_api = client.BatchV1Api()
@@ -54,8 +54,16 @@ def create_k6_job(test_id, url, vus, duration, p95_threshold_ms):
                                     value=str(p95_threshold_ms)
                                 ),
                                 client.V1EnvVar(
+                                    name="K6_METHOD",
+                                    value=method
+                                ),
+                                client.V1EnvVar(
                                     name="K6_PROMETHEUS_RW_SERVER_URL",
                                     value="http://prometheus:9090/api/v1/write"
+                                ),
+                                client.V1EnvVar(
+                                    name="K6_PROMETHEUS_RW_PUSH_INTERVAL",
+                                    value="1s"
                                 ),
                                 client.V1EnvVar(
                                     name="K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM",
@@ -110,13 +118,14 @@ def get_k6_results(job_name):
     raise RuntimeError("k6 JSON summary not found in pod logs")
 
 
-def run_kubernetes_test(test_id, url, vus, duration, p95_threshold_ms):
+def run_kubernetes_test(test_id, url, vus, duration, p95_threshold_ms, method):
     job = create_k6_job(
         test_id,
         url,
         vus,
         duration,
-        p95_threshold_ms
+        p95_threshold_ms,
+        method
     )
 
     job_name = job.metadata.name

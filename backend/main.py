@@ -59,6 +59,7 @@ class TestConfig(BaseModel):
     vus: int = Field(gt=0, le=1000)
     duration: str
     p95_threshold_ms: float = Field(gt=0)
+    method: str = "GET" 
 
     @field_validator("duration")
     @classmethod
@@ -94,6 +95,7 @@ def execute_kubernetes_test(
     vus,
     duration,
     p95_threshold_ms
+    method
 ):
     db = SessionLocal()
 
@@ -104,6 +106,7 @@ def execute_kubernetes_test(
             vus,
             duration,
             p95_threshold_ms
+            method
         )
 
         metrics = result["metrics"]
@@ -175,6 +178,7 @@ def run_test(config: TestConfig, background_tasks: BackgroundTasks):
         config.vus,
         config.duration,
         config.p95_threshold_ms,
+        config.method,
     )
 
     return {
