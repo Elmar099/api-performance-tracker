@@ -297,14 +297,15 @@ pollTest();
       </p>
 
       <p>
-        <strong>Status:</strong>{" "}
-        <span className="status-badge status-failed">
-          failed
-          <p>
-          <strong>Reason:</strong> {result.error_message}
-          </p>
-        </span>
-      </p>
+  <strong>Status:</strong>{" "}
+  <span className="status-badge status-failed">
+    failed
+  </span>
+</p>
+
+<p>
+  <strong>Reason:</strong> {result.error_message}
+</p>
     </div>
   </div>
 )}
