@@ -6,7 +6,7 @@ export const options = {
     duration: __ENV.K6_DURATION,
 
     thresholds: {
-        http_req_duration: ["p(95)<100"],
+        http_req_duration: [`p(95)<${__ENV.K6_P95_THRESHOLD}`],
     },
 };
 

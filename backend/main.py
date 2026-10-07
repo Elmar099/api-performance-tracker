@@ -57,6 +57,7 @@ class TestConfig(BaseModel):
     url: str
     vus: int = Field(gt=0, le=1000)
     duration: str
+    p95_threshold_ms: float = Field(gt=0)
 
     @field_validator("duration")
     @classmethod
@@ -73,6 +74,7 @@ class TestResponse(BaseModel):
     created_at: datetime
     status: str
     error_message: Optional[str] = None
+    p95_threshold_ms: Optional[float] = None
 
     url: str
     vus: int
@@ -85,11 +87,11 @@ class TestResponse(BaseModel):
     failure_rate: Optional[float] = None
     threshold_passed: Optional[bool] = None
 
-def execute_test(test_id, url, vus, duration):
+def execute_test(test_id, url, vus, duration, p95_threshold_ms):
     db = SessionLocal()
 
     try:
-        result = run_k6_test(url, vus, duration)
+        result = run_k6_test(url, vus, duration, p95_threshold_ms)
 
         if result["failure_rate"] == 1.0:
             test = db.query(Test).filter(Test.id == test_id).first()
@@ -152,6 +154,7 @@ def run_test(config: TestConfig, background_tasks: BackgroundTasks):
         url=config.url,
         vus=config.vus,
         duration=config.duration,
+        p95_threshold_ms=config.p95_threshold_ms,
     )
 
     db.add(test)
@@ -164,6 +167,7 @@ def run_test(config: TestConfig, background_tasks: BackgroundTasks):
         config.url,
         config.vus,
         config.duration,
+        config.p95_threshold_ms,
     )
 
     return {

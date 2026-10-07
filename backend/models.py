@@ -13,6 +13,7 @@ class Test(Base):
     url = Column(String)
     vus = Column(Integer)
     duration = Column(String)
+    p95_threshold_ms = Column(Float)
 
     requests = Column(Integer)
     requests_per_second = Column(Float)

@@ -26,6 +26,7 @@ function App() {
   const [duration, setDuration] = useState("5s");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
+  const [p95Threshold, setP95Threshold] = useState(200);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/api/tests`)
@@ -56,10 +57,11 @@ function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          url,
-          vus,
-          duration,
-        }),
+            url,
+            vus,
+            duration,
+            p95_threshold_ms: p95Threshold,
+          }),
       }
     );
 
@@ -70,6 +72,7 @@ function App() {
     const data = await response.json();
 
     setResult(data);
+    
     
 const testId = data.test_id;
 
@@ -113,6 +116,7 @@ const pollTest = async () => {
         url: test.url,
         vus: test.vus,
         duration: test.duration,
+        p95_threshold_ms: test.p95_threshold_ms
       },
       results: {
         requests: test.requests,
@@ -189,6 +193,16 @@ pollTest();
     <option value="1m">1 minute</option>
 </select>
   </div>
+  <div className="form-group">
+  <label>P95 Latency Threshold (ms)</label>
+
+  <input
+    type="number"
+    min="1"
+    value={p95Threshold}
+    onChange={(e) => setP95Threshold(Number(e.target.value))}
+  />
+</div>
 
   <button type="submit" disabled={running}>
   {running ? "Running Test..." : "Run Test"}
@@ -254,6 +268,7 @@ pollTest();
       <p><strong>URL:</strong> {result.config.url}</p>
       <p><strong>Virtual Users:</strong> {result.config.vus}</p>
       <p><strong>Duration:</strong> {result.config.duration}</p>
+      <p><strong>P95 Threshold:</strong>{" "} {result.config.p95_threshold_ms} ms</p>
       <p>
   <strong>Status:</strong>{" "}
   <span

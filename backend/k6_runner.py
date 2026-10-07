@@ -1,7 +1,7 @@
 import subprocess
 import json
 
-def run_k6_test(url, vus, duration):
+def run_k6_test(url, vus, duration, p95_threshold_ms):
     result = subprocess.run(
     [
         "k6",
@@ -17,6 +17,7 @@ def run_k6_test(url, vus, duration):
         "K6_VUS": str(vus),
         "K6_DURATION": duration,
         "K6_URL": url,
+        "K6_P95_THRESHOLD": str(p95_threshold_ms),
     }
 )
     with open("k6/summary.json", "r") as file:
