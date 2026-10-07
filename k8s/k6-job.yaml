@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: api-performance-k6:latest
+          env:
+            - name: K6_VUS
+              value: "2"
+            - name: K6_DURATION
+              value: "5s"
+            - name: K6_URL
+              value: "http://host.docker.internal:8000/api/users"
+            - name: K6_P95_THRESHOLD
+              value: "100"

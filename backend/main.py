@@ -1,3 +1,4 @@
+from backend.kubernetes_runner import run_kubernetes_test
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from backend.k6_runner import run_k6_test
@@ -87,48 +88,54 @@ class TestResponse(BaseModel):
     failure_rate: Optional[float] = None
     threshold_passed: Optional[bool] = None
 
-def execute_test(test_id, url, vus, duration, p95_threshold_ms):
+def execute_kubernetes_test(
+    test_id,
+    url,
+    vus,
+    duration,
+    p95_threshold_ms
+):
     db = SessionLocal()
 
     try:
-        result = run_k6_test(url, vus, duration, p95_threshold_ms)
+        result = run_kubernetes_test(
+            test_id,
+            url,
+            vus,
+            duration,
+            p95_threshold_ms
+        )
 
-        if result["failure_rate"] == 1.0:
-            test = db.query(Test).filter(Test.id == test_id).first()
+        metrics = result["metrics"]
 
-            if test:
-
-                test.status = "failed"
-                test.error_message = "All HTTP requests failed"
-
-                test.requests = result["requests"]
-                test.requests_per_second = result["requests_per_second"]
-                test.avg_latency_ms = result["avg_latency_ms"]
-                test.p95_latency_ms = result["p95_latency_ms"]
-                test.max_latency_ms = result["max_latency_ms"]
-                test.failure_rate = result["failure_rate"]
-                test.threshold_passed = result["threshold_passed"]
-
-                db.commit()
-
-            return
+        failure_rate = metrics["http_req_failed"]["values"]["rate"]
 
         test = db.query(Test).filter(Test.id == test_id).first()
 
-        if test:
+        if not test:
+            return
 
+        test.requests = metrics["http_reqs"]["values"]["count"]
+        test.requests_per_second = metrics["http_reqs"]["values"]["rate"]
+        test.avg_latency_ms = metrics["http_req_duration"]["values"]["avg"]
+        test.p95_latency_ms = metrics["http_req_duration"]["values"]["p(95)"]
+        test.max_latency_ms = metrics["http_req_duration"]["values"]["max"]
+        test.failure_rate = failure_rate
+
+        test.threshold_passed = result["metrics"]["http_req_duration"][
+            "thresholds"
+        ][f"p(95)<{p95_threshold_ms}"]["ok"]
+
+        if failure_rate == 1.0:
+            test.status = "failed"
+            test.error_message = "All HTTP requests failed"
+        else:
             test.status = "completed"
-            test.requests = result["requests"]
-            test.requests_per_second = result["requests_per_second"]
-            test.avg_latency_ms = result["avg_latency_ms"]
-            test.p95_latency_ms = result["p95_latency_ms"]
-            test.max_latency_ms = result["max_latency_ms"]
-            test.failure_rate = result["failure_rate"]
-            test.threshold_passed = result["threshold_passed"]
 
-            db.commit()
+        db.commit()
 
     except Exception as error:
+        print(f"Test {test_id} failed: {error}")
 
         test = db.query(Test).filter(Test.id == test_id).first()
 
@@ -162,7 +169,7 @@ def run_test(config: TestConfig, background_tasks: BackgroundTasks):
     db.close()
 
     background_tasks.add_task(
-        execute_test,
+        execute_kubernetes_test,
         test_id,
         config.url,
         config.vus,

@@ -17,3 +17,8 @@ export default function () {
         "status is 200": (r) => r.status === 200,
     });
 }
+export function handleSummary(data) {
+    return {
+        stdout: JSON.stringify(data),
+    };
+}
