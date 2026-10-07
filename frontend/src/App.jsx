@@ -70,15 +70,76 @@ function App() {
     const data = await response.json();
 
     setResult(data);
+    
+const testId = data.test_id;
+
+const pollTest = async () => {
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/api/tests/${testId}`
+  );
+
+  const test = await response.json();
+
+  if (test.status === "completed" || test.status === "failed") {
+    if (test.status === "failed") {
+      setResult({
+        test_id: test.id,
+        created_at: test.created_at,
+        status: "failed",
+        error_message: test.error_message,
+        config: {
+          url: test.url,
+          vus: test.vus,
+          duration: test.duration,
+        },
+      });
 
     const historyResponse = await fetch(
-    `${import.meta.env.VITE_API_URL}/api/tests`
+      `${import.meta.env.VITE_API_URL}/api/tests`
     );
 
     const historyData = await historyResponse.json();
 
     setTests(historyData);
 
+    return;
+  }
+
+    setResult({
+      test_id: test.id,
+      created_at: test.created_at,
+      status: test.status,
+      config: {
+        url: test.url,
+        vus: test.vus,
+        duration: test.duration,
+      },
+      results: {
+        requests: test.requests,
+        requests_per_second: test.requests_per_second,
+        avg_latency_ms: test.avg_latency_ms,
+        p95_latency_ms: test.p95_latency_ms,
+        max_latency_ms: test.max_latency_ms,
+        failure_rate: test.failure_rate,
+        threshold_passed: test.threshold_passed,
+      },
+    });
+
+    const historyResponse = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/tests`
+    );
+
+    const historyData = await historyResponse.json();
+
+    setTests(historyData);
+
+    return;
+  }
+
+  setTimeout(pollTest, 1000);
+};
+
+pollTest();
   } catch (error) {
     console.error(error);
   } finally {
@@ -133,7 +194,59 @@ function App() {
   {running ? "Running Test..." : "Run Test"}
   </button>
 </form>
-  {result && (
+{result && result.status === "running" && (
+  <div className="latest-result">
+    <h2>Test Running</h2>
+
+    <div className="test-info">
+      <p>
+        <strong>URL:</strong> {result.config.url}
+      </p>
+      <p>
+        <strong>Virtual Users:</strong> {result.config.vus}
+      </p>
+      <p>
+        <strong>Duration:</strong> {result.config.duration}
+      </p>
+      <p>
+        <strong>Status:</strong>{" "}
+        <span className="status-badge status-passed">
+          {result.status}
+        </span>
+      </p>
+    </div>
+  </div>
+)}
+{result && result.status === "failed" && (
+  <div className="latest-result">
+    <h2>Test Failed</h2>
+
+    <div className="test-info">
+      <p>
+        <strong>URL:</strong> {result.config.url}
+      </p>
+
+      <p>
+        <strong>Virtual Users:</strong> {result.config.vus}
+      </p>
+
+      <p>
+        <strong>Duration:</strong> {result.config.duration}
+      </p>
+
+      <p>
+        <strong>Status:</strong>{" "}
+        <span className="status-badge status-failed">
+          failed
+          <p>
+          <strong>Reason:</strong> {result.error_message}
+          </p>
+        </span>
+      </p>
+    </div>
+  </div>
+)}
+  {result && result.results && (
   <div className="latest-result">
     <h2>Latest Test Result</h2>
 
@@ -328,20 +441,40 @@ function App() {
                 <td>{test.vus}</td>
                 <td>{test.duration}</td>
                 <td>{test.requests}</td>
-                <td>{test.requests_per_second.toFixed(2)}</td>
-                <td>{test.avg_latency_ms.toFixed(2)} ms</td>
-                <td>{test.p95_latency_ms.toFixed(2)} ms</td>
-                <td>{test.max_latency_ms.toFixed(2)} ms</td>
-                <td>{(test.failure_rate * 100).toFixed(2)}%</td>
+                <td>
+  {test.requests_per_second != null
+    ? test.requests_per_second.toFixed(2)
+    : "-"}
+</td>
+                <td>
+  {test.avg_latency_ms != null
+    ? test.avg_latency_ms.toFixed(2)
+    : "-"}
+</td>
+                <td>
+  {test.p95_latency_ms != null
+    ? test.p95_latency_ms.toFixed(2)
+    : "-"}
+</td>
+                <td>
+  {test.max_latency_ms != null
+    ? test.max_latency_ms.toFixed(2)
+    : "-"}
+</td>
+                <td>
+  {test.failure_rate != null
+    ? `${(test.failure_rate * 100).toFixed(2)}%`
+    : "-"}
+</td>
                 <td>
                   <span
                     className={
-                      test.threshold_passed
-                        ? "status-badge status-passed"
-                        : "status-badge status-failed"
-                    }
+                        test.status === "completed"
+                          ? "status-badge status-passed"
+                          : "status-badge status-failed"
+                      }
                   >
-                    {test.threshold_passed ? "Passed" : "Threshold Failed"}
+                    {test.status}
                   </span>
                 </td>
               </tr>

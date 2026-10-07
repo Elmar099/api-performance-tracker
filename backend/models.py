@@ -7,9 +7,10 @@ class Test(Base):
 
     id = Column(String, primary_key=True)
     created_at = Column(DateTime)
+    status = Column(String, default="pending")
+    error_message = Column(String, nullable=True)
 
     url = Column(String)
-
     vus = Column(Integer)
     duration = Column(String)
 

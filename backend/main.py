@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from backend.k6_runner import run_k6_test
 from pydantic import BaseModel, Field, field_validator, ConfigDict
+from typing import Optional
 from datetime import datetime, timezone
 from uuid import uuid4
 from backend.database import SessionLocal
@@ -70,21 +71,75 @@ class TestResponse(BaseModel):
 
     id: str
     created_at: datetime
+    status: str
+    error_message: Optional[str] = None
+
     url: str
     vus: int
     duration: str
-    requests: int
-    requests_per_second: float
-    avg_latency_ms: float
-    p95_latency_ms: float
-    max_latency_ms: float
-    failure_rate: float
-    threshold_passed: bool
+    requests: Optional[int] = None
+    requests_per_second: Optional[float] = None
+    avg_latency_ms: Optional[float] = None
+    p95_latency_ms: Optional[float] = None
+    max_latency_ms: Optional[float] = None
+    failure_rate: Optional[float] = None
+    threshold_passed: Optional[bool] = None
+
+def execute_test(test_id, url, vus, duration):
+    db = SessionLocal()
+
+    try:
+        result = run_k6_test(url, vus, duration)
+
+        if result["failure_rate"] == 1.0:
+            test = db.query(Test).filter(Test.id == test_id).first()
+
+            if test:
+
+                test.status = "failed"
+                test.error_message = "All HTTP requests failed"
+
+                test.requests = result["requests"]
+                test.requests_per_second = result["requests_per_second"]
+                test.avg_latency_ms = result["avg_latency_ms"]
+                test.p95_latency_ms = result["p95_latency_ms"]
+                test.max_latency_ms = result["max_latency_ms"]
+                test.failure_rate = result["failure_rate"]
+                test.threshold_passed = result["threshold_passed"]
+
+                db.commit()
+
+            return
+
+        test = db.query(Test).filter(Test.id == test_id).first()
+
+        if test:
+
+            test.status = "completed"
+            test.requests = result["requests"]
+            test.requests_per_second = result["requests_per_second"]
+            test.avg_latency_ms = result["avg_latency_ms"]
+            test.p95_latency_ms = result["p95_latency_ms"]
+            test.max_latency_ms = result["max_latency_ms"]
+            test.failure_rate = result["failure_rate"]
+            test.threshold_passed = result["threshold_passed"]
+
+            db.commit()
+
+    except Exception as error:
+
+        test = db.query(Test).filter(Test.id == test_id).first()
+
+        if test:
+            test.status = "failed"
+            test.error_message = str(error)
+            db.commit()
+
+    finally:
+        db.close()
 
 @app.post("/api/tests")
-def run_test(config: TestConfig):
-    result = run_k6_test(config.url, config.vus, config.duration)
-
+def run_test(config: TestConfig, background_tasks: BackgroundTasks):
     test_id = str(uuid4())
     created_at = datetime.now(timezone.utc)
 
@@ -93,31 +148,33 @@ def run_test(config: TestConfig):
     test = Test(
         id=test_id,
         created_at=created_at,
+        status="running",
         url=config.url,
         vus=config.vus,
         duration=config.duration,
-        requests=result["requests"],
-        requests_per_second=result["requests_per_second"],
-        avg_latency_ms=result["avg_latency_ms"],
-        p95_latency_ms=result["p95_latency_ms"],
-        max_latency_ms=result["max_latency_ms"],
-        failure_rate=result["failure_rate"],
-        threshold_passed=result["threshold_passed"],
     )
 
     db.add(test)
     db.commit()
     db.close()
 
+    background_tasks.add_task(
+        execute_test,
+        test_id,
+        config.url,
+        config.vus,
+        config.duration,
+    )
+
     return {
         "test_id": test_id,
         "created_at": created_at.isoformat(),
+        "status": "running",
         "config": {
             "url": config.url,
             "vus": config.vus,
             "duration": config.duration,
         },
-        "results": result,
     }
 
 @app.get("/api/tests", response_model=list[TestResponse])
@@ -129,3 +186,16 @@ def get_tests():
     db.close()
 
     return tests
+
+@app.get("/api/tests/{test_id}", response_model=TestResponse)
+def get_test(test_id: str):
+    db = SessionLocal()
+
+    test = db.query(Test).filter(Test.id == test_id).first()
+
+    db.close()
+
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    return test
