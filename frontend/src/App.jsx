@@ -17,6 +17,54 @@ const formatTime = (timestamp) => {
   });
 };
 
+const getRegression = (currentTest, tests) => {
+  if (!currentTest || currentTest.status !== "completed") {
+    return null;
+  }
+
+  const previousTests = tests
+    .filter(
+      (test) =>
+        test.status === "completed" &&
+        test.url === currentTest.config.url &&
+        test.vus === currentTest.config.vus &&
+        test.duration === currentTest.config.duration &&
+        test.id !== currentTest.test_id
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.created_at) - new Date(a.created_at)
+    );
+
+  if (previousTests.length === 0) {
+    return null;
+  }
+
+  const previousTest = previousTests[0];
+
+  const p95Change =
+    ((currentTest.results.p95_latency_ms -
+      previousTest.p95_latency_ms) /
+      previousTest.p95_latency_ms) *
+    100;
+
+  const throughputChange =
+    ((currentTest.results.requests_per_second -
+      previousTest.requests_per_second) /
+      previousTest.requests_per_second) *
+    100;
+
+  const regression =
+    p95Change > 10 || throughputChange < -10;
+
+  return {
+    regression,
+    p95Change,
+    throughputChange,
+    previousTest,
+  };
+};
+
 function App() {
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +132,14 @@ const pollTest = async () => {
   const test = await response.json();
 
   if (test.status === "completed" || test.status === "failed") {
+    const historyResponse = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/tests`
+    );
+
+    const historyData = await historyResponse.json();
+
+    setTests(historyData);
+
     if (test.status === "failed") {
       setResult({
         test_id: test.id,
@@ -94,21 +150,14 @@ const pollTest = async () => {
           url: test.url,
           vus: test.vus,
           duration: test.duration,
+          p95_threshold_ms: test.p95_threshold_ms,
         },
       });
 
-    const historyResponse = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/tests`
-    );
+      return;
+    }
 
-    const historyData = await historyResponse.json();
-
-    setTests(historyData);
-
-    return;
-  }
-
-    setResult({
+    const currentResult = {
       test_id: test.id,
       created_at: test.created_at,
       status: test.status,
@@ -116,7 +165,7 @@ const pollTest = async () => {
         url: test.url,
         vus: test.vus,
         duration: test.duration,
-        p95_threshold_ms: test.p95_threshold_ms
+        p95_threshold_ms: test.p95_threshold_ms,
       },
       results: {
         requests: test.requests,
@@ -127,15 +176,14 @@ const pollTest = async () => {
         failure_rate: test.failure_rate,
         threshold_passed: test.threshold_passed,
       },
+    };
+
+    const regression = getRegression(currentResult, historyData);
+
+    setResult({
+      ...currentResult,
+      regression,
     });
-
-    const historyResponse = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/tests`
-    );
-
-    const historyData = await historyResponse.json();
-
-    setTests(historyData);
 
     return;
   }
@@ -322,6 +370,33 @@ pollTest();
         </strong>
       </div>
     </div>
+    {result.regression && (
+      <div className="regression-card">
+        <h3>
+          {result.regression.regression
+            ? "⚠️ Performance Regression Detected"
+            : "✅ Performance Stable"}
+        </h3>
+
+        <div className="regression-metrics">
+          <p>
+            <strong>P95 Latency:</strong>{" "}
+            {result.regression.p95Change >= 0 ? "+" : ""}
+            {result.regression.p95Change.toFixed(1)}%
+          </p>
+
+          <p>
+            <strong>Throughput:</strong>{" "}
+            {result.regression.throughputChange >= 0 ? "+" : ""}
+            {result.regression.throughputChange.toFixed(1)}%
+          </p>
+        </div>
+
+        <p className="regression-baseline">
+          Compared with the previous test for this API.
+        </p>
+      </div>
+    )}
   </div>
 )}
 
