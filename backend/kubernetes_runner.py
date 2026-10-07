@@ -53,6 +53,21 @@ def create_k6_job(test_id, url, vus, duration, p95_threshold_ms):
                                     name="K6_P95_THRESHOLD",
                                     value=str(p95_threshold_ms)
                                 ),
+                                client.V1EnvVar(
+                                    name="K6_PROMETHEUS_RW_SERVER_URL",
+                                    value="http://prometheus:9090/api/v1/write"
+                                ),
+                                client.V1EnvVar(
+                                    name="K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM",
+                                    value="true"
+                                ),
+                            ],
+                            command=[
+                                "k6",
+                                "run",
+                                "--out",
+                                "experimental-prometheus-rw",
+                                "/test.js",
                             ],
                         )
                     ],
