@@ -1,5 +1,21 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+const formatTime = (timestamp) => {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 function App() {
   const [tests, setTests] = useState([]);
@@ -117,7 +133,7 @@ function App() {
   {running ? "Running Test..." : "Run Test"}
   </button>
 </form>
-      {result && (
+  {result && (
   <div className="latest-result">
     <h2>Latest Test Result</h2>
 
@@ -180,6 +196,104 @@ function App() {
     </div>
   </div>
 )}
+
+<div className="chart-grid">
+{tests.length > 0 && (
+  <div className="chart-container">
+    <h2>P95 Latency</h2>
+
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart
+        data={[...tests].sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        )}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis
+        dataKey="created_at"
+        tickFormatter={formatTime}
+        />
+        <YAxis />
+        <Tooltip
+          labelFormatter={(value) => formatTime(value)}
+          content={({ active, payload }) => {
+          if (!active || !payload || !payload.length) {
+            return null;
+          }
+
+          const test = payload[0].payload;
+
+          return (
+            <div className="chart-tooltip">
+              <p>{formatTime(test.created_at)}</p>
+              <p>P95: {test.p95_latency_ms.toFixed(2)} ms</p>
+              <p>VUs: {test.vus}</p>
+              <p>Duration: {test.duration}</p>
+            </div>
+          );
+        }}
+/>
+        <Line
+          type="monotone"
+          dataKey="p95_latency_ms"
+          stroke="#3b82f6"
+          strokeWidth={2}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+)}
+
+{tests.length > 0 && (
+  <div className="chart-container">
+    <h2>Requests per Second</h2>
+
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart
+        data={[...tests].sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        )}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+
+        <XAxis
+          dataKey="created_at"
+          tickFormatter={formatTime}
+        />
+
+        <YAxis />
+
+        <Tooltip
+          content={({ active, payload }) => {
+            if (!active || !payload || !payload.length) {
+              return null;
+            }
+
+            const test = payload[0].payload;
+
+            return (
+              <div className="chart-tooltip">
+                <p>{formatTime(test.created_at)}</p>
+                <p>Requests/sec: {test.requests_per_second.toFixed(2)}</p>
+                <p>VUs: {test.vus}</p>
+                <p>Duration: {test.duration}</p>
+              </div>
+            );
+          }}
+        />
+
+        <Line
+          type="monotone"
+          dataKey="requests_per_second"
+          stroke="#3b82f6"
+          strokeWidth={2}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+)}
+
+</div>
       <h2>Test History</h2>
 
       {loading && <p>Loading tests...</p>}
